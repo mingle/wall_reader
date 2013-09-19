@@ -129,7 +129,9 @@ String GetKeyPadInput() {
           enter = true;
           break;
         case 'F':
-          // nothing yet
+          input = input.substring(0, input.length() - 1);
+          lcd.clear();
+          lcd.print(input);
           break;
         default:
           if(input.length() == 0) {
