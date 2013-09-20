@@ -1,5 +1,6 @@
 require 'rubygems'
 require 'serialport'
+require 'yaml'
 
 require 'date'
 
