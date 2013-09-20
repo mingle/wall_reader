@@ -67,8 +67,11 @@ class Mingle
   attr_reader :values
   
   def initialize
-    @request = Request.new(:username => "admin", :password => "p", :host => "localhost", :port => "8080")
-    @project = "cow_farm"
+    config = YAML.load(File.read("./config.yml")).first
+    
+    @request = Request.new(:username => config["username"], :password => config["password"], 
+                           :host => config["host"], :port => config["port"] || 80)
+    @project = config["project"]
     @property_name = "Status"
     @values = ["New", "In Progress", "Done"]
   end

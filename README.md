@@ -1,0 +1,1 @@
+Copy config.yml.example to create a config.yml file with credentials to connect to a mingle project.
