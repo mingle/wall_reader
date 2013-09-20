@@ -28,6 +28,10 @@ class CardRFID
     end
   end
   
+  def done?
+    @values.last == @values[@current_done_value]
+  end
+  
 end
 
 class Request
@@ -123,6 +127,11 @@ class MingleCardReader
     @mingle.update_status(read_card)
     print_to_reader("updated card #{read_card.card_number}")
     print_to_reader("to #{read_card.next_property_value}")
+    
+   if read_card.done?
+      @cards.delete(read_card)
+      print_to_reader("reuse card", 5)
+    end
   end
   
   def associate_card(rfid)
