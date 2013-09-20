@@ -3,3 +3,5 @@
   username: 'username'
   password: 'password'
   project: 'test_project'
+  property: 'Status'
+  values: ['ready for development', 'In Dev', 'Done']

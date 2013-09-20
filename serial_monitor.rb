@@ -77,13 +77,14 @@ class Mingle
   attr_reader :values
   
   def initialize
-    config = YAML.load(File.read("./config.yml")).first
+    config = YAML.load(File.read("./config.yml")).first    
     
     @request = Request.new(:username => config["username"], :password => config["password"], 
                            :host => config["host"], :port => config["port"] || 80)
     @project = config["project"]
-    @property_name = "Status"
-    @values = ["New", "In Progress", "Done"]
+    
+    @property_name = config["property"]
+    @values = config["values"]
   end
   
   def update_status(card)
