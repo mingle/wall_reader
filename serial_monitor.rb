@@ -1,9 +1,10 @@
 require 'rubygems'
 require 'serialport'
+require 'yaml'
 
 require 'date'
 
-require "net/http"
+require "net/https"
 require "uri"
 
 class CardRFID 
@@ -39,12 +40,12 @@ class Request
   def initialize(options)
     @username = options[:username] 
     @password = options[:password]
-    @base_url = "http://#{options[:host]}:#{options[:port]}"
+    @base_url = "https://#{options[:host]}:#{options[:port]}"
   end
   
   def put(url, data)
     uri = URI.parse("#{@base_url}#{url}")
-    http = Net::HTTP.new(uri.host, uri.port)
+    http = configure_http(uri)
     request = Net::HTTP::Put.new(uri.request_uri)
     request.basic_auth(@username, @password)
     request.set_form_data(data)
@@ -53,11 +54,20 @@ class Request
   
   def post(url, data)
     uri = URI.parse("#{@base_url}#{url}")
-    http = Net::HTTP.new(uri.host, uri.port)
+    http = configure_http(uri)    
     request = Net::HTTP::Post.new(uri.request_uri)
     request.basic_auth(@username, @password)
     request.set_form_data(data)
     http.request(request)
+  end
+  
+  private
+  
+  def configure_http(uri)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+    http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    http
   end
   
 end
@@ -67,13 +77,14 @@ class Mingle
   attr_reader :values
   
   def initialize
-    config = YAML.load(File.read("./config.yml")).first
+    config = YAML.load(File.read("./config.yml")).first    
     
     @request = Request.new(:username => config["username"], :password => config["password"], 
                            :host => config["host"], :port => config["port"] || 80)
     @project = config["project"]
-    @property_name = "Status"
-    @values = ["New", "In Progress", "Done"]
+    
+    @property_name = config["property"]
+    @values = config["values"]
   end
   
   def update_status(card)
@@ -103,7 +114,7 @@ class MingleCardReader
     @sp = SerialPort.new(ARGV[0], 9600, 8, 1, SerialPort::NONE)
   end
   
-  def monitor``
+  def monitor
     while (i = @sp.gets.chomp) do
       i.strip!
       puts "got #{i}"
@@ -129,7 +140,7 @@ class MingleCardReader
   def update_card(read_card)
     @mingle.update_status(read_card)
     print_to_reader("updated card #{read_card.card_number}")
-    print_to_reader("to #{read_card.next_property_value}")
+    print_to_reader("to #{read_card.next_property_value.slice(0..12)}")
     
    if read_card.done?
       @cards.delete(read_card)

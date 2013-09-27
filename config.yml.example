@@ -1,5 +1,7 @@
-- host: 'http://localhost'
-  port:8080
+- host: 'localhost'
+  port:'8080'
   username: 'username'
   password: 'password'
   project: 'test_project'
+  property: 'Status'
+  values: ['ready for development', 'In Dev', 'Done']
