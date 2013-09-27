@@ -137,7 +137,12 @@ class MingleCardReader
   
   private
   
+  def print_busy_tone
+    print_to_reader("please wait ...")
+  end
+  
   def update_card(read_card)
+    print_busy_tone
     @mingle.update_status(read_card)
     print_to_reader("updated card #{read_card.card_number}")
     print_to_reader("to #{read_card.next_property_value.slice(0..12)}")
@@ -153,6 +158,7 @@ class MingleCardReader
     new_card_number = @sp.gets.chomp
   
     if(new_card_number == "0")
+      print_busy_tone
       new_card_number = @mingle.create_card
       print_to_reader "created #{new_card_number}", 3
     else
