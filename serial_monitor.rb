@@ -22,7 +22,7 @@ class CardRFID
   end
   
   def read?(read_rfid)
-    if @rfid == read_rfid.to_i
+    if @rfid == read_rfid.to_s
       @current_done_value = @current_done_value + 1
       true
     end
@@ -103,12 +103,12 @@ class MingleCardReader
     @sp = SerialPort.new(ARGV[0], 9600, 8, 1, SerialPort::NONE)
   end
   
-  def monitor
-    while (i = @sp.gets) do
-
+  def monitor``
+    while (i = @sp.gets.chomp) do
+      i.strip!
       puts "got #{i}"
       
-      if(clean_rfid_input(i).length == 10)
+      if(i.length == 10)
         
         read_card = @cards.find { |c| c.read?(i) }
       
@@ -148,11 +148,7 @@ class MingleCardReader
       print_to_reader "set to #{new_card_number}", 3
     end
   
-    @cards << CardRFID.new(clean_rfid_input(rfid).to_i, new_card_number, @mingle.values)
-  end
-  
-  def clean_rfid_input(rfid)
-    rfid.chomp.gsub(/[^0-9]+/, '')
+    @cards << CardRFID.new(rfid.to_s, new_card_number, @mingle.values)
   end
   
   def print_to_reader(message, delay=1)
