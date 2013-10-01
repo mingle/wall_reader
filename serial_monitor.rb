@@ -6,10 +6,49 @@ require 'date'
 
 require "net/https"
 require "uri"
+require "sqlite3"
+
+class Storage
+  
+  class << self
+  
+    def init_db
+      @@db = SQLite3::Database.new "cards.db"
+      @@db.execute <<-SQL
+        create table IF NOT EXISTS cards (
+          num TEXT,
+          rfid TEXT
+        );
+      SQL
+    end
+  
+    def save_card(card)
+      @@db.execute("INSERT INTO cards (num, rfid) VALUES (?, ?)", [card.card_number, card.rfid])
+    end
+    
+    def destroy_card(card)
+      @@db.execute("DELETE FROM cards WHERE num = ? and rfid = ?", [card.card_number, card.rfid])
+    end
+    
+    def load_cards
+       cards = []
+       @@db.execute("select * from cards" ) do |row|
+         cards << CardRFID.new(row[0], row[1], [])
+       end
+       cards
+     end
+
+     def delete_cards
+       @@db.execute("delete from cards;")
+     end
+    
+  end
+  
+end
 
 class CardRFID 
   
-  attr_reader :card_number
+  attr_reader :card_number, :rfid
   
   def initialize(rfid, card_number, values)
     @rfid = rfid
@@ -31,6 +70,14 @@ class CardRFID
   
   def done?
     @values.last == @values[@current_done_value]
+  end
+  
+  def save 
+    Storage.save_card(self)
+  end
+  
+  def destroy
+    Storage.destroy_card(self)
   end
   
 end
@@ -110,7 +157,7 @@ class MingleCardReader
   
   def initialize 
     @mingle = Mingle.new
-    @cards = []
+    @cards = Storage.load_cards
     @sp = SerialPort.new(ARGV[0], 9600, 8, 1, SerialPort::NONE)
   end
   
@@ -148,6 +195,7 @@ class MingleCardReader
     print_to_reader("to #{read_card.next_property_value.slice(0..12)}")
     
    if read_card.done?
+      read_card.destroy
       @cards.delete(read_card)
       print_to_reader("reuse card", 5)
     end
@@ -164,8 +212,9 @@ class MingleCardReader
     else
       print_to_reader "set to #{new_card_number}", 3
     end
-  
-    @cards << CardRFID.new(rfid.to_s, new_card_number, @mingle.values)
+    c = CardRFID.new(rfid.to_s, new_card_number, @mingle.values)
+    c.save
+    @cards << c
   end
   
   def print_to_reader(message, delay=1)
@@ -174,6 +223,8 @@ class MingleCardReader
   end
 
 end 
+
+Storage.init_db
   
 begin     
   while TRUE do
