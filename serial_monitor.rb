@@ -17,24 +17,33 @@ class Storage
       @@db.execute <<-SQL
         create table IF NOT EXISTS cards (
           num TEXT,
-          rfid TEXT
+          rfid TEXT,
+          current_done_value INTEGER
         );
       SQL
     end
   
-    def save_card(card)
-      @@db.execute("INSERT INTO cards (num, rfid) VALUES (?, ?)", [card.card_number, card.rfid])
+    def create_card(card)
+      @@db.execute("INSERT INTO cards (num, rfid, current_done_value) VALUES (?, ?, ?)", [card.card_number, card.rfid, card.current_done_value])
     end
     
     def destroy_card(card)
       @@db.execute("DELETE FROM cards WHERE num = ? and rfid = ?", [card.card_number, card.rfid])
     end
     
-    def load_cards
+    def update_card(card)
+      @@db.execute("UPDATE cards set rfid = ?, current_done_value = ? where num = #{card.card_number}", [card.rfid, card.current_done_value])
+    end
+    
+    def load_cards(values)
        cards = []
+       puts "loading cards..."
        @@db.execute("select * from cards" ) do |row|
-         cards << CardRFID.new(row[0], row[1], [])
-       end
+         c = CardRFID.new(row[1], row[0], values)
+         c.current_done_value = row[2]
+         puts "    ##{c.card_number}(#{c.rfid}) => #{c.status}"
+         cards << c
+       end       
        cards
      end
 
@@ -49,6 +58,7 @@ end
 class CardRFID 
   
   attr_reader :card_number, :rfid
+  attr_accessor :current_done_value
   
   def initialize(rfid, card_number, values)
     @rfid = rfid
@@ -64,6 +74,7 @@ class CardRFID
   def read?(read_rfid)
     if @rfid == read_rfid.to_s
       @current_done_value = @current_done_value + 1
+      Storage.update_card(self)
       true
     end
   end
@@ -72,8 +83,12 @@ class CardRFID
     @values.last == @values[@current_done_value]
   end
   
-  def save 
-    Storage.save_card(self)
+  def status
+    @values[@current_done_value]
+  end
+  
+  def create 
+    Storage.create_card(self)
   end
   
   def destroy
@@ -157,14 +172,14 @@ class MingleCardReader
   
   def initialize 
     @mingle = Mingle.new
-    @cards = Storage.load_cards
+    @cards = Storage.load_cards(@mingle.values)
     @sp = SerialPort.new(ARGV[0], 9600, 8, 1, SerialPort::NONE)
   end
   
   def monitor
     while (i = @sp.gets.chomp) do
       i.strip!
-      puts "got #{i}"
+      puts "Read RFID: #{i}"
       
       if(i.length == 10)
         
@@ -213,7 +228,7 @@ class MingleCardReader
       print_to_reader "set to #{new_card_number}", 3
     end
     c = CardRFID.new(rfid.to_s, new_card_number, @mingle.values)
-    c.save
+    c.create
     @cards << c
   end
   
