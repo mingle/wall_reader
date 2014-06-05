@@ -6,10 +6,59 @@ require 'date'
 
 require "net/https"
 require "uri"
+require "sqlite3"
+
+class Storage
+  
+  class << self
+  
+    def init_db
+      @@db = SQLite3::Database.new "cards.db"
+      @@db.execute <<-SQL
+        create table IF NOT EXISTS cards (
+          num TEXT,
+          rfid TEXT,
+          current_done_value INTEGER
+        );
+      SQL
+    end
+  
+    def create_card(card)
+      @@db.execute("INSERT INTO cards (num, rfid, current_done_value) VALUES (?, ?, ?)", [card.card_number, card.rfid, card.current_done_value])
+    end
+    
+    def destroy_card(card)
+      @@db.execute("DELETE FROM cards WHERE num = ? and rfid = ?", [card.card_number, card.rfid])
+    end
+    
+    def update_card(card)
+      @@db.execute("UPDATE cards set rfid = ?, current_done_value = ? where num = #{card.card_number}", [card.rfid, card.current_done_value])
+    end
+    
+    def load_cards(values)
+       cards = []
+       puts "loading cards..."
+       @@db.execute("select * from cards" ) do |row|
+         c = CardRFID.new(row[1], row[0], values)
+         c.current_done_value = row[2]
+         puts "    ##{c.card_number}(#{c.rfid}) => #{c.status}"
+         cards << c
+       end       
+       cards
+     end
+
+     def delete_cards
+       @@db.execute("delete from cards;")
+     end
+    
+  end
+  
+end
 
 class CardRFID 
   
-  attr_reader :card_number
+  attr_reader :card_number, :rfid
+  attr_accessor :current_done_value
   
   def initialize(rfid, card_number, values)
     @rfid = rfid
@@ -25,12 +74,25 @@ class CardRFID
   def read?(read_rfid)
     if @rfid == read_rfid.to_s
       @current_done_value = @current_done_value + 1
+      Storage.update_card(self)
       true
     end
   end
   
   def done?
     @values.last == @values[@current_done_value]
+  end
+  
+  def status
+    @values[@current_done_value]
+  end
+  
+  def create 
+    Storage.create_card(self)
+  end
+  
+  def destroy
+    Storage.destroy_card(self)
   end
   
 end
@@ -111,14 +173,14 @@ class MingleCardReader
   
   def initialize 
     @mingle = Mingle.new
-    @cards = []
     @sp = SerialPort.new(@mingle.serial_port, 9600, 8, 1, SerialPort::NONE)
+    @cards = Storage.load_cards(@mingle.values)
   end
   
   def monitor
     while (i = @sp.gets.chomp) do
       i.strip!
-      puts "got #{i}"
+      puts "Read RFID: #{i}"
       
       if(i.length == 10)
         
@@ -149,6 +211,7 @@ class MingleCardReader
     print_to_reader("to #{read_card.next_property_value.slice(0..12)}")
     
    if read_card.done?
+      read_card.destroy
       @cards.delete(read_card)
       print_to_reader("reuse card", 5)
     end
@@ -165,8 +228,9 @@ class MingleCardReader
     else
       print_to_reader "set to #{new_card_number}", 3
     end
-  
-    @cards << CardRFID.new(rfid.to_s, new_card_number, @mingle.values)
+    c = CardRFID.new(rfid.to_s, new_card_number, @mingle.values)
+    c.create
+    @cards << c
   end
   
   def print_to_reader(message, delay=1)
@@ -175,6 +239,8 @@ class MingleCardReader
   end
 
 end 
+
+Storage.init_db
   
 begin     
   while TRUE do
