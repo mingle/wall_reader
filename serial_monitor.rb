@@ -74,7 +74,7 @@ end
 
 class Mingle
   
-  attr_reader :values
+  attr_reader :values, :serial_port
   
   def initialize
     config = YAML.load(File.read("./config.yml")).first    
@@ -84,6 +84,7 @@ class Mingle
     @project = config["project"]
     
     @property_name = config["property"]
+    @serial_port = config["serial_port"]
     @values = config["values"]
   end
   
@@ -111,7 +112,7 @@ class MingleCardReader
   def initialize 
     @mingle = Mingle.new
     @cards = []
-    @sp = SerialPort.new(ARGV[0], 9600, 8, 1, SerialPort::NONE)
+    @sp = SerialPort.new(@mingle.serial_port, 9600, 8, 1, SerialPort::NONE)
   end
   
   def monitor
