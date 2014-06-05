@@ -1,8 +1,9 @@
-- host: 'localhost'
+- protocol: 'https'
+  host: 'localhost'
   port:'8080'
   username: 'username'
   password: 'password'
   project: 'test_project'
   property: 'Status'
   serial_port: '/dev/tty.serialport'
-  values: ['ready for development', 'In Dev', 'Done']
+  values: ['ready for development', 'In Dev', 'Done']  

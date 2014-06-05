@@ -102,12 +102,13 @@ class Request
   def initialize(options)
     @username = options[:username] 
     @password = options[:password]
-    @base_url = "https://#{options[:host]}:#{options[:port]}"
+    @protocol = options[:protocol]
+    @base_url = "#{@protocol}://#{options[:host]}:#{options[:port]}"
   end
   
   def put(url, data)
     uri = URI.parse("#{@base_url}#{url}")
-    http = configure_http(uri)
+    http = configure_http(uri, @protocol)
     request = Net::HTTP::Put.new(uri.request_uri)
     request.basic_auth(@username, @password)
     request.set_form_data(data)
@@ -116,7 +117,7 @@ class Request
   
   def post(url, data)
     uri = URI.parse("#{@base_url}#{url}")
-    http = configure_http(uri)    
+    http = configure_http(uri, @protocol)    
     request = Net::HTTP::Post.new(uri.request_uri)
     request.basic_auth(@username, @password)
     request.set_form_data(data)
@@ -125,10 +126,12 @@ class Request
   
   private
   
-  def configure_http(uri)
+  def configure_http(uri, protocol)
     http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = true
-    http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    if(protocol == "https")
+      http.use_ssl = true
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    end
     http
   end
   
@@ -139,10 +142,10 @@ class Mingle
   attr_reader :values, :serial_port
   
   def initialize
-    config = YAML.load(File.read("./config.yml")).first    
+    config = YAML.load(File.read("./config.yml")).first
     
     @request = Request.new(:username => config["username"], :password => config["password"], 
-                           :host => config["host"], :port => config["port"] || 80)
+                           :host => config["host"], :port => config["port"] || 80, :protocol => config["protocol"])
     @project = config["project"]
     
     @property_name = config["property"]
@@ -182,10 +185,10 @@ class MingleCardReader
       i.strip!
       puts "Read RFID: #{i}"
       
-      if(i.length == 10)
+      if(i.length >= 10)
         
         read_card = @cards.find { |c| c.read?(i) }
-      
+
         unless read_card.nil?
           update_card(read_card)
         else
@@ -220,7 +223,7 @@ class MingleCardReader
   def associate_card(rfid)
     print_to_reader "UNKNOWN"
     new_card_number = @sp.gets.chomp
-  
+    
     if(new_card_number == "0")
       print_busy_tone
       new_card_number = @mingle.create_card
